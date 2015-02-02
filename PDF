@@ -1,0 +1,206 @@
+# In[1]:
+
+from pdfminer.pdfparser import PDFParser
+from pdfminer.pdfdocument import PDFDocument
+
+from bs4 import BeautifulSoup
+import requests
+import glob
+# In[7]:
+
+from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
+from pdfminer.pdfparser import PDFParser
+from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
+from pdfminer.converter import PDFPageAggregator
+from pdfminer.layout import LTPage, LTChar, LTAnno, LAParams, LTTextBox, LTTextLine
+
+class PDFPageDetailedAggregator(PDFPageAggregator):
+    def __init__(self, rsrcmgr, pageno=1, laparams=None):
+        PDFPageAggregator.__init__(self, rsrcmgr, pageno=pageno, laparams=laparams)
+        self.rows = []
+        self.page_number = 0
+    def receive_layout(self, ltpage):        
+        def render(item, page_number):
+            if isinstance(item, LTPage) or isinstance(item, LTTextBox):
+                for child in item:
+                    render(child, page_number)
+            elif isinstance(item, LTTextLine):
+                child_str = ''
+                for child in item:
+                    if isinstance(child, (LTChar, LTAnno)):
+                        child_str += child.get_text()
+                child_str = ' '.join(child_str.split()).strip()
+                if child_str:
+                    row = (page_number, item.bbox[0], item.bbox[1], item.bbox[2], item.bbox[3], child_str) # bbox == (x1, y1, x2, y2)
+                    self.rows.append(row)
+                for child in item:
+                    render(child, page_number)
+            return
+        render(ltpage, self.page_number)
+        self.page_number += 1
+        self.rows = sorted(self.rows, key = lambda x: (x[0], -x[2]))
+        self.result = ltpage
+        
+from pprint import pprint
+from pdfminer.pdfparser import PDFParser
+from pdfminer.pdfdocument import PDFDocument
+from pdfminer.pdfpage import PDFPage
+from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
+from pdfminer.layout import LAParams
+
+
+def process(filename):
+    fp = open(filename, 'rb')
+    parser = PDFParser(fp)
+    doc = PDFDocument(parser)
+    #doc.initialize() # leave empty for no password
+
+    rsrcmgr = PDFResourceManager()
+    laparams = LAParams()
+    device = PDFPageDetailedAggregator(rsrcmgr, laparams=laparams)
+    interpreter = PDFPageInterpreter(rsrcmgr, device)
+
+    for page in PDFPage.create_pages(doc):
+        interpreter.process_page(page)
+        # receive the LTPage object for this page
+        device.get_result()
+
+    #pprint(device.rows)
+    
+    return device.rows
+
+
+# In[59]:
+#
+# def cluster(data, maxgap):
+#     '''Arrange data into groups where successive elements
+#        differ by no more than *maxgap*
+#
+#         >>> cluster([1, 6, 9, 100, 102, 105, 109, 134, 139], maxgap=10)
+#         [[1, 6, 9], [100, 102, 105, 109], [134, 139]]
+#
+#         >>> cluster([1, 6, 9, 99, 100, 102, 105, 134, 139, 141], maxgap=10)
+#         [[1, 6, 9], [99, 100, 102, 105], [134, 139, 141]]
+#
+#     '''
+#     data.sort()
+#     groups = [[data[0]]]
+#     for x in data[1:]:
+#         if abs(x - groups[-1][-1]) <= maxgap:
+#             groups[-1].append(x)
+#         else:
+#             groups.append([x])
+#     return groups
+#
+# def naive_cluster(data):
+#     clusters = {}
+#
+#     for x in data:
+#         clusters.setdefault("{0:.0f}".format(x),[]).append(x)
+#
+#     return clusters
+
+# In[62]:
+
+import numpy
+
+document = {}
+
+def reformat(rows):
+    widths = []
+    heights = []
+    for (page,x1,y1,x2,y2,text) in rows:
+        widths.append(x2-x1)
+        heights.append(y2-y1)
+        
+    #height_clusters = naive_cluster(heights)
+    
+    #pprint(height_clusters)
+    
+    # Get the median width to determine the position of a potential column divider
+    median_width = numpy.median(widths)
+    
+    y1_p = 0
+    page_p = 0
+    leftcol = ""
+    rightcol = ""
+    document = ""
+    pttype = ""
+    for (page,x1,y1,x2,y2,text) in rows:
+        # New page? New y coordinates
+        if page > page_p :
+            y1_p = 0
+            
+        # height = y2-y1
+        # print "height:", height
+        
+        #for hcl in height_clusters:
+        #    if height in hcl:
+        #        print "cluster:", height_clusters.index(hcl)
+        
+        # if height > 10 :
+        #     ttype = "heading"
+        # elif height > 8:
+        #     ttype = "normal text"
+        # elif height < 8 :
+        #     ttype = "small text"
+        #
+        # print ttype
+        
+        if y1 == y1_p:
+            # print "table?"
+            pass
+        if x1 > median_width: 
+            # print "right: {} ({},{})".format(text.encode('utf-8'),x1,y1)
+            rightcol += text + '\n'
+        else :
+            # print "left: {} ({},{})".format(text.encode('utf-8'),x1,y1)
+            leftcol += text + '\n'
+            
+            
+        if page > page_p :
+            document += leftcol + rightcol 
+            leftcol = ""
+            rightcol = ""
+            page_p = page
+        else :
+            y1_p = y1
+        
+        # pttype = ttype
+        
+    return document
+        
+
+# bbox == (x1, y1, x2, y2)
+for f in glob.glob('*.pdf'):
+    print f
+    rows = process(f)
+    document = reformat(rows)
+    
+    with open(f[0:-4] + ".txt",'w') as outf :
+        outf.write(document.encode('utf-8'))
+    
+
+        
+
+# In[ ]:
+
+#
+# yformatted = "%.0f" % y
+# if y > previous/2:
+#     document.setdefault(page,{}).setdefault(previousf,[]).append(text)
+# else :
+#     document.setdefault(page,{}).setdefault(yformatted,[]).append(text)
+#
+# previous = y
+# previousf= yformatted
+#
+#     pprint(document)
+
+.
+.
+.
+
+
+
+
