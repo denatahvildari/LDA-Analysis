@@ -1,0 +1,241 @@
+setwd("~/")
+getwd()
+library(lda)
+library(SnowballC)
+library(RColorBrewer)
+library(ggplot2)
+library(NLP)
+library(tm)
+library(topicmodels)
+
+fch<- file.path("/Users/denatahvildari/Desktop/FCH/fchmethods")
+fch
+class(fch)
+length(dir(fch))
+dir(fch)
+fch.Corpus <- Corpus(DirSource(fch))
+fch.Corpus
+class(fch.Corpus)
+getTransformations()
+fch.Corpus <- tm_map(fch.Corpus, tolower)
+inspect(fch.Corpus[1])
+fch.Corpus <- tm_map(fch.Corpus, removeNumbers)
+inspect(fch.Corpus[1])
+fch.Corpus<-tm_map(fch.Corpus, removePunctuation)
+inspect(fch.Corpus[1])
+fch.Corpus<-tm_map(fch.Corpus, removeWords, stopwords("english"))
+inspect(fch.Corpus[1])
+#length(stopwords("english"))
+#stopwords("english")
+
+fch.Corpus <- tm_map (fch.Corpus, stripWhitespace)
+inspect(fch.Corpus[1])
+
+fch.Corpus <- tm_map(fch.Corpus,stemDocument)
+inspect (fch.Corpus[1]) 
+
+library("slam")
+corpus <- Corpus(VectorSource(fch.Corpus))
+corpus
+#dataframe<-data.frame(text=unlist(sapply(corpus, `[`, "content")), 
+#stringsAsFactors=F)
+
+DocumentTermMatrix(corpus)
+dtm <- DocumentTermMatrix(corpus)
+dtm
+dim(dtm)
+tdm <- TermDocumentMatrix(corpus)
+tdm
+
+freq<- colSums(as.matrix(dtm))
+length(freq)
+
+ord <- order(freq)
+freq[head(ord)]
+freq[tail(ord)]
+
+FH<-head(table(freq), 10)
+FT<-tail(table(freq), 20)
+
+M<-as.matrix(dtm)
+dim(M)
+write.csv(M,file="dtm.csv")
+
+#removing Sparse Term
+dim(dtm)
+dtms <- removeSparseTerms(dtm, .05)
+dtms
+inspect(dtms)
+
+freq <- colSums (as.matrix(dtms))
+freq
+table(freq)
+findFreqTerms(dtm,lowfreq=1000)
+findFreqTerms(dtm,lowfreq=100)
+
+findAssocs(dtm, "food", corlimit= 0.5)
+library(RGraphiz) #This is not working 
+install.packages(Rgraphviz) #This is not working 
+plot(dtm, terms=findFreqTerms(dtm,lowfreq=100)[1:50],corThreshold=0.5)
+
+library("topicmodels")
+k<- 40
+num.iteration <-350
+result<-lda.collapsed.gibbs.sampler(dtm$socuments, K, dtm$vocab, num.iteration,.01,.01, compute.log.liklihood = TRUE)
+top.words <- topc.topic.word(result$topics, 25, by.score=TRUE)
+k <- 30
+SEED <- set.seed(280000)
+num.iterations <- 250
+result <- lda.collapsed.gibbs.sampler(dtm$documents, k, dtm$vocab, num.iterations, 0.1, 0.1, compute.log.likelihood = TRUE)
+top.words <- top.topic.words(result$topics, 25, by.score = TRUE)
+
+print(top.words)
+install.packages("wordcloud")
+library(wordcloud)
+
+inspect(dtm[1:325, 1:2])
+
+x <- findFreqTerms(dtm, 500)
+x
+
+findAssocs(dtm, "food", 0.7)
+Y<-inspect(removeSparseTerms(dtm, 0.4))
+inspect(DocumentTermMatrix(corpus, list(dictionary = c("food", "chemistry"))))
+##########################################
+####################################
+############################
+
+library(topicmodels)
+data(corpus)
+class(corpus)
+docs = corpus[1:100]
+ldafitmodel <- lda(corpus, 4, method = "Gibbs")
+Error in lda.default(corpus, 4, method = "Gibbs") : 
+nrow(x) and length(grouping) are different
+(ldafitmodel <- LDA(corpus, 4, method = "Gibbs"))
+A LDA_Gibbs topic model with 4 topics.
+
+####
+#################################
+
+dataframe<-data.frame (text=unlist(sapply(mycorpus, `[`, "content")), stringsAsFactors=F)
+dataframe <- as.data.frame(corpus)
+#lda 
+require("ggplot2")
+require("reshape2")
+library(lda)
+
+theme_set(theme_bw())  
+
+set.seed(8675309)
+K <- 30
+result <- lda.collapsed.gibbs.sampler(cora.documents,
+                                      K,  ## Num clusters
+                                      cora.vocab,
+                                      25,  ## Num iterations
+                                      0.1,
+                                      0.1,
+                                      compute.log.likelihood=TRUE) 
+## Get the top words in the cluster
+top.words <- top.topic.words(result$topics, 5, by.score=TRUE)
+
+## Number of documents to display
+N <- 10
+topic.proportions <- t (result$document_sums) / colSums(result$document_sums)
+topic.proportions <- topic.proportions[sample (1:dim(topic.proportions)[1], N),]
+topic.proportions[is.na (topic.proportions)] <-  1 / K
+
+colnames (topic.proportions) <- apply(top.words, 2, paste, collapse=" ")
+topic.proportions.df <- melt (cbind(data.frame(topic.proportions),
+                             document=factor(1:N)),
+                             variable.name="topic",
+                             id.vars = "document")  
+qplot (topic, value, fill=document, ylab="proportion",
+data=topic.proportions.df, geom="bar") +
+opts(axis.text.x = theme_text (angle=90, hjust=1)) +  
+coord_flip () +
+facet_wrap (~ document, ncol=5)
+
+# find most frequent terms in all 241 docs
+topicmodels<-findFreqTerms (dtm, 200, 200)
+DOC1<- dtm$mnames$Docs
+
+# find the doc names
+doc1<-dtm$dimnames$Docs
+
+
+qplot (topic, value, fill=document, ylab="proportion", )
+opts(axiss.text.x =theme_text (angle=90, hjust=1)) + coord_flip() +facet_wrap(~document, nclo5)
+
+##############################################################
+##############################################################
+
+corpus <-lexicalize (corpus, lower=TRUE)
+corpus$documents
+to-keep <- corpus$vocab [word.counts(corpus$documents, corpus$vocab) >=2]
+
+
+
+to-keep<- corpus$vocab[word.counts(corpus$docuemnts, corpus$vocab) >=2]
+corpus <- lexicalize (corpus, lower=TRUE)
+corpus$docuements 
+class(docuements)
+
+lda.collapsed.gibbs.sampler (documents, k=10, num.iterations=20, vocab=NULL, alpha=0, beta=0 
+                             initial=NU, burnin=NULL, compute.log.liklelihood=FALSE,
+                             trace=0L, freez.topics=FALSE)
+corpus <- lexicalize (corpus, lower=TRUE)
+corpus$documents
+to.keep <- corpus$vocab [word.counts(corpus$documents, corpus$vocab) >= 2]
+to.keep
+documents <- lexicalize (corpus, lower=TRUE, vocab=to.keep)
+documents
+class(documents)
+
+lda.collapsed.gibbs.sampler (documents, K=10, num.iterations=20, vocab= NULL, alpha= 0, beta = 0,
+                            initial = NULL, burnin = NULL, compute.log.likelihood = FALSE,
+                            trace = 0L, freeze.topics = FALSE)
+lexicalize(corpus, sep = " ", lower = TRUE, count = 1L, vocab = NULL)
+
+read.documents (filename = "/Users/denatahvildari/Documents/TopicModeling")
+read.vocab (filename= "/Users/denatahvildari/Documents/TopicModeling")
+setwd ("~/Documents/TopicModeling")
+Documents <- read.documents("~/Documents/TopicModeling")
+
+da.model <- LDA(dtm, 5)
+read.document (corpus)
+vocab<- read.vocab ("")
+
+# find freq words for each doc, one by one
+list_freqs <- lapply(dtm$dimnames$Docs, 
+                     function(i) findFreqTerms(dtm[dtm$dimnames$Docs == i], 2, 100))
+list_freqs
+
+# from here http://stackoverflow.com/a/7196565/1036500
+L <- list_freqs
+cfun <- function(L) {
+pad.na <- function(x,len) {
+c(x,rep(NA,len-length(x)))
+  }
+  maxlen <- max(sapply(L,length))
+  do.call(data.frame,lapply(L,pad.na,len=maxlen))
+}
+# make dataframe of words (but probably you want words as rownames and cells with counts?)
+tab_freqa <- cfun(L)
+
+# convert dtm to matrix
+mat <- as.matrix(dtm)
+
+# make data frame similar to "3 columns 'Terms', 
+# 'Series x', 'Series Y'. With series x and y 
+# having the number of times that word occurs"
+cb <- data.frame(doc1 = mat['127',], doc2 = mat['144',])
+
+# keep only words that are in at least one doc
+cb <- cb[rowSums(cb)  > 0, ]
+
+# plot
+require(ggplot2)
+ggplot(cb, aes(doc1, doc2)) +
+  geom_text(label = rownames(cb), 
+            position=position_jitter())
